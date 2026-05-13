@@ -202,4 +202,26 @@ with tab1:
             st.session_state.result_approved = (result[0] == "Approved")
             st.rerun()
 with tab2:
-    file=st.file_uploader("Upload File",type="csv")
+    fileData=st.file_uploader("Upload File",type="csv")
+    buttonFile=st.button("Predict Loan")
+    if buttonFile:
+        if not fileData:
+            st.error("Upload File")
+        else:
+            file=pd.read_csv(fileData)
+            file.columns = file.columns.str.strip().str.replace(" ", "").str.replace("_", "")
+            file.columns = file.columns.str[0].str.lower() + file.columns.str[1:]
+
+            for records in file.columns:
+                if file[records].dtype not in ['int64', 'float64']:
+                    file[records] = file[records].str.strip()
+
+            # Encode
+            file['education']    = file['education'].map({"Graduate": 1, "Not Graduate": 0})
+            file['selfemployed'] = file['selfemployed'].map({"Yes": 1, "No": 0})
+
+            # Predict
+            filePrediction = model.predict(file)
+            resultFile     = labelEncoder.inverse_transform(filePrediction)
+            file["Predicted Loan Application"]=resultFile
+            st.write(file)
