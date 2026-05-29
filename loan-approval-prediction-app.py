@@ -202,13 +202,67 @@ with tab1:
             st.session_state.result_approved = (result[0] == "Approved")
             st.rerun()
 with tab2:
-    fileData=st.file_uploader("Upload File",type="csv")
-    buttonFile=st.button("Predict Loan")
+    st.markdown("""
+        <style>
+            /* Hide default streamlit uploader and restyle */
+            [data-testid="stFileUploader"] {
+                border: 2px dashed #cccccc !important;
+                border-radius: 12px !important;
+                padding: 40px 20px !important;
+                text-align: center !important;
+                background-color: #fafafa !important;
+            }
+            [data-testid="stFileUploader"]:hover {
+                border-color: #ff4b4b !important;
+                background-color: #fff5f5 !important;
+            }
+            [data-testid="stFileDropzoneInstructions"] {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+            }
+            [data-testid="stFileUploaderDropzoneInstructions"] svg {
+                width: 48px !important;
+                height: 48px !important;
+                color: #888 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div style="
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 16px;
+        ">Upload Loan Application File</div>
+        <div style="
+            text-align: center;
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 20px;
+        ">Upload a CSV file to predict loan approval for multiple applications</div>
+    """, unsafe_allow_html=True)
+
+    fileData   = st.file_uploader("Select a CSV file to upload", type="csv", label_visibility="collapsed")
+    buttonFile = st.button("Predict Loan", use_container_width=True)
+
     if buttonFile:
         if not fileData:
-            st.error("Upload File")
+            st.markdown("""
+                <div style="
+                    background-color: #fff0f0;
+                    border-left: 4px solid #ff4b4b;
+                    border-radius: 4px;
+                    padding: 10px 14px;
+                    color: #cc0000;
+                    font-size: 14px;
+                    margin-top: 10px;
+                ">⚠️ Please upload a CSV file before predicting</div>
+            """, unsafe_allow_html=True)
         else:
-            file=pd.read_csv(fileData)
+            file = pd.read_csv(fileData)
             file.columns = file.columns.str.strip().str.replace(" ", "").str.replace("_", "")
             file.columns = file.columns.str[0].str.lower() + file.columns.str[1:]
 
@@ -216,12 +270,52 @@ with tab2:
                 if file[records].dtype not in ['int64', 'float64']:
                     file[records] = file[records].str.strip()
 
-            # Encode
             file['education']    = file['education'].map({"Graduate": 1, "Not Graduate": 0})
             file['selfemployed'] = file['selfemployed'].map({"Yes": 1, "No": 0})
 
-            # Predict
             filePrediction = model.predict(file)
             resultFile     = labelEncoder.inverse_transform(filePrediction)
-            file["Predicted Loan Application"]=resultFile
-            st.write(file)
+            file["Predicted Loan Application"] = resultFile
+
+            # Summary counts
+            approved = (resultFile == "Approved").sum()
+            rejected = (resultFile == "Rejected").sum()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                    <div style="
+                        background-color: #f0fff4;
+                        border-left: 4px solid #28a745;
+                        border-radius: 8px;
+                        padding: 16px;
+                        text-align: center;
+                        font-size: 18px;
+                        font-weight: bold;
+                        color: #155724;
+                    ">✅ Approved<br>{approved}</div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                    <div style="
+                        background-color: #fff0f0;
+                        border-left: 4px solid #ff4b4b;
+                        border-radius: 8px;
+                        padding: 16px;
+                        text-align: center;
+                        font-size: 18px;
+                        font-weight: bold;
+                        color: #cc0000;
+                    ">❌ Rejected<br>{rejected}</div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Highlight rows
+            def highlightResult(row):
+                if row['Predicted Loan Application'] == 'Approved':
+                    return ['background-color: #d4edda'] * len(row)
+                else:
+                    return ['background-color: #f8d7da'] * len(row)
+
+            st.dataframe(file.style.apply(highlightResult, axis=1))
